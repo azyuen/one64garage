@@ -1,7 +1,7 @@
 # one64garage
 
 A personal automotive journal that links your 1:64 diecast collection with your
-Gran Turismo driving experience. Record your collection and driving tips. No accounts, no backend, no subscriptions —
+Gran Turismo driving experience. No accounts, no backend, no subscriptions —
 everything lives in your browser or in one JSON file you control.
 
 ## Run it locally
