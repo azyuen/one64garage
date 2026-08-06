@@ -1,0 +1,74 @@
+[
+  {
+    "id": "toyota-celica-xx-2800gt-1981",
+    "make": "Toyota",
+    "model": "Celica XX",
+    "variant": "2800GT",
+    "year": 1981,
+    "generation": "A40/A50 (1st gen, facelift)",
+    "bodyType": "2-door liftback coupe",
+    "countryOfOrigin": "Japan",
+    "heroImage": "",
+    "tech": {
+      "engine": "5M-GEU",
+      "configuration": "Inline-6, SOHC 12v",
+      "displacement": "2759 cc",
+      "horsepower": "145 PS",
+      "torque": "216 Nm",
+      "weight": "1290 kg",
+      "drivetrain": "FR",
+      "transmission": "5-speed manual"
+    },
+    "history": {
+      "whyItMatters": "Sold in North America as the Celica Supra, the XX was Toyota's answer to the Datsun 280ZX and early European GTs \u2014 a long-nosed, straight-six liftback built for effortless high-speed touring rather than outright cornering speed."
+    }
+  },
+  {
+    "id": "toyota-supra-mkiii-1982",
+    "make": "Toyota",
+    "model": "Supra",
+    "variant": "Turbo-A",
+    "year": 1982,
+    "generation": "A60 (2nd gen)",
+    "bodyType": "2-door liftback coupe",
+    "countryOfOrigin": "Japan",
+    "heroImage": "",
+    "tech": {
+      "engine": "5M-GEU",
+      "configuration": "Inline-6, SOHC 12v turbo",
+      "displacement": "2759 cc",
+      "horsepower": "165 PS",
+      "torque": "245 Nm",
+      "weight": "1385 kg",
+      "drivetrain": "FR",
+      "transmission": "5-speed manual"
+    },
+    "history": {
+      "whyItMatters": "The A60 was the first Supra to fully separate itself from the Celica lineup, growing into a dedicated flagship GT with pop-up headlights and \u2014 later in the run \u2014 a factory turbocharged six."
+    }
+  },
+  {
+    "id": "nissan-skyline-gtr-r32-1989",
+    "make": "Nissan",
+    "model": "Skyline GT-R",
+    "variant": "R32",
+    "year": 1989,
+    "generation": "R32 (1st modern GT-R)",
+    "bodyType": "2-door coupe",
+    "countryOfOrigin": "Japan",
+    "heroImage": "",
+    "tech": {
+      "engine": "RB26DETT",
+      "configuration": "Inline-6, DOHC 24v twin-turbo",
+      "displacement": "2568 cc",
+      "horsepower": "280 PS (advertised)",
+      "torque": "353 Nm",
+      "weight": "1430 kg",
+      "drivetrain": "AWD (ATTESA E-TS)",
+      "transmission": "5-speed manual"
+    },
+    "history": {
+      "whyItMatters": "Revived the GT-R name after a 16-year absence and introduced ATTESA E-TS all-wheel drive and Super-HICAS rear steering \u2014 technology that made the R32 nearly unbeatable in period touring car racing."
+    }
+  }
+]
