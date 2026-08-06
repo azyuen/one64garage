@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-canvas-line dark:border-garage-line;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-canvas text-ink dark:bg-garage dark:text-paper font-body font-medium antialiased;
+    font-feature-settings: 'palt' 1;
+  }
+  h1, h2, h3 {
+    @apply font-bold;
+  }
+  ::selection {
+    @apply bg-vermilion text-canvas;
+  }
+  :focus-visible {
+    outline: 2px solid #B23A2E;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Chassis-plate style eyebrow label, used throughout for section labels */
+  .plate-label {
+    @apply font-mono font-semibold text-[11px] tracking-plate uppercase text-ink-soft dark:text-paper-soft;
+  }
+
+  .hairline {
+    @apply border-t border-canvas-line dark:border-garage-line;
+  }
+
+  .card-surface {
+    @apply bg-canvas-soft dark:bg-garage-soft border border-canvas-line dark:border-garage-line;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-ink text-canvas dark:bg-paper dark:text-garage
+      px-5 py-2.5 text-sm tracking-wide font-medium transition-colors
+      hover:bg-vermilion hover:text-canvas dark:hover:bg-vermilion dark:hover:text-canvas;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 border border-canvas-line dark:border-garage-line
+      px-5 py-2.5 text-sm tracking-wide font-medium transition-colors
+      hover:border-vermilion hover:text-vermilion;
+  }
+
+  .field-label {
+    @apply block font-mono font-semibold text-[10px] tracking-plate uppercase text-ink-soft dark:text-paper-soft mb-1.5;
+  }
+
+  .field-input {
+    @apply w-full bg-transparent border border-canvas-line dark:border-garage-line px-3 py-2 text-sm
+      focus:border-vermilion transition-colors;
+  }
+
+  .field-textarea {
+    @apply field-input resize-y min-h-[6rem] leading-relaxed;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Drive Mode — recessed LCD look with a faint scanline texture and warm glow */
+  .console-screen {
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.02) 0px,
+        rgba(255, 255, 255, 0.02) 1px,
+        transparent 1px,
+        transparent 3px
+      ),
+      radial-gradient(ellipse at 50% 0%, rgba(201, 190, 114, 0.05), transparent 65%);
+    box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.85), inset 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+  .console-glow {
+    text-shadow: 0 0 4px currentColor, 0 0 9px currentColor;
+  }
+}
