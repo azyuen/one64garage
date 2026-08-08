@@ -16,7 +16,7 @@ export default function TakeOut() {
   const [suggestion, setSuggestion] = useState(null);
   const [driveModeActive, setDriveModeActive] = useState(false);
   const [driveModeDismissed, setDriveModeDismissed] = useState(false);
-  const { eligible } = useDriveModeEligible();
+  const { eligible, isIPad } = useDriveModeEligible();
 
   function rollSuggestion(list) {
     if (!list.length) {
@@ -221,20 +221,21 @@ export default function TakeOut() {
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    setDriveModeDismissed(false);
-                    setDriveModeActive(true);
-                  }}
-                  className="btn-ghost text-xs px-3 py-1.5 flex-shrink-0"
-                >
-                  Drive Mode
-                </button>
+                {isIPad && (
+                  <button
+                    onClick={() => {
+                      setDriveModeDismissed(false);
+                      setDriveModeActive(true);
+                    }}
+                    className="btn-ghost text-xs px-3 py-1.5 flex-shrink-0"
+                  >
+                    Drive Mode
+                  </button>
+                )}
               </div>
-              {!eligible && (
+              {isIPad && !eligible && (
                 <p className="text-[11px] text-ink-soft dark:text-paper-soft mt-2">
-                  OEM Drive Mode is built for iPad landscape — rotate and widen the window, or tap "Drive Mode" to
-                  try it anyway.
+                  Drive Console works best in landscape — rotate your iPad, or tap "Drive Mode" to try it anyway.
                 </p>
               )}
             </div>
