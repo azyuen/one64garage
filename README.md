@@ -144,73 +144,81 @@ source for GT5/GT6/Sport, so matching for those games is still manual entry
 — it would be dishonest to fabricate a database for something that doesn't
 verifiably exist.
 
-## Drive Mode
+## Drive Console (Drive Mode)
 
-On a landscape, tablet-width screen (built with iPad in mind), selecting a
-car on the **Take Out** page automatically switches into an immersive
-dashboard shell. Visually, it's built as a **fixed image skin with real UI
-positioned underneath it** — `src/assets/drive-mode-skin.webp` is a
-photographic OEM dashboard mockup treated as the permanent visual shell;
-none of it is drawn in CSS. `DriveMode.jsx`'s state, timer logic, tab
-switching, and note-saving are unchanged from before — only how they're
-laid out changed, from styled cards to percentage-positioned content
-showing through the image's cutouts.
+**iPad-exclusive.** Drive Console is meant to be a dedicated dashboard
+display mounted beside a sim racing setup, not a phone feature — it's
+gated entirely to iPad. There's no formal "is this an iPad" browser API
+(iPadOS 13+ deliberately reports its user agent as "Macintosh" for site
+compatibility), so detection combines the legacy `iPad` user-agent check
+with the standard workaround for modern iPadOS: a "Mac" platform that also
+reports multi-touch support. On any other device — iPhone included — the
+Drive Mode button and auto-activation are hidden entirely; there's no
+disabled/greyed-out version to stumble into.
 
-**How the skin works:** the source PNG didn't have real transparency — it
-used a checkerboard pattern as a placeholder for "make this transparent,"
-which had to be converted into an actual alpha channel (bright,
-low-saturation pixels → transparent; everything else → opaque) before it
-could work as an overlay. One region — the car-name portion of the top
-strip — wasn't part of any checkerboard cutout in the source at all (it had
-a static example name baked in as flat pixels), so a second pass punched an
-additional transparent hole there, since the car name obviously has to be
-dynamic. "ONE64 GARAGE" and "DRIVE MODE" stay as fixed baked-in labels.
-Every content position (the three gauges, the LCD, the three button
-windows) was measured programmatically from the image's actual transparent
-regions rather than eyeballed, then expressed as percentages of the image's
-own dimensions so it stays aligned at any render size.
+On a landscape iPad, selecting a car on the **Take Out** page automatically
+switches into the console. Visually, it's a **fixed image skin with real
+UI positioned underneath it** — `src/assets/drive-mode-skin.webp` is a
+photographic OEM dashboard mockup treated as the permanent shell; none of
+it is drawn in CSS. Every content position (header, three gauges, LCD,
+button windows) was measured programmatically from the image's actual
+transparent cutouts rather than eyeballed, then expressed as percentages
+of the image's own dimensions so it stays aligned at any render size.
 
-**The three gauges**: a manual Drive Timer (tap Start/Stop, double-tap to
+**How the skin works:** the source PNG doesn't have real transparency — it
+uses a checkerboard pattern as a placeholder for "make this transparent,"
+which gets converted into an actual alpha channel (bright, low-saturation
+pixels → transparent; everything else stays opaque) before it can work as
+an overlay. "ONE64 GARAGE," "DRIVE," "NOTES," and the button icons are
+fixed baked-in art; only the genuinely transparent regions (header text
+area, three gauges, the LCD, and two small active-state indicator pills)
+carry real app content.
+
+**Vehicle header**: make/model/variant/year, right-aligned, and it
+literally shrinks to fit — a script measures the rendered text against the
+available width and reduces the font size until it stops overflowing, so
+"Mazda MX-5" and "Mitsubishi Lancer Evolution VI Tommi Mäkinen Edition"
+both render cleanly without hardcoding different cases.
+
+**Three gauges**: a manual Drive Timer (tap Start/Stop, double-tap to
 reset — it isn't trying to detect actual Gran Turismo play time, since a
-web page has no way to see what's happening in another app), your Garage
-Rating for the car as stars, and horsepower + drivetrain. Only the
-*values* are rendered — the "DRIVE TIMER" / "GARAGE RATING" / "VEHICLE
-INFO" labels above each dial are part of the fixed image, so they aren't
-duplicated.
+web page can't see what's happening in another app), Garage Rating as
+stars, and horsepower + drivetrain. Only the *values* render — the dial
+labels are baked into the image.
 
-**The screen** has exactly two pages, reached via the DRIVE / NOTES buttons
-(the image's own labels — the buttons are invisible hit-targets sized to
-match) or the in-screen tabs: driving tips plus your last session note
-(prep for the next drive), and a large, simple field for logging a new one
-afterwards. Logging a note here writes a single session record — same
-mechanism as the plain Take Out flow, so it doesn't create a duplicate
-entry in the Journal's activity feed.
+**The LCD** is deliberately larger than the first version and shows more
+at once: driving tips, your last session note, and the car's historical
+notes on the Drive screen; a note-entry field plus full session history on
+the Notes screen. Text sizes scale with `clamp()` against the viewport and
+lean toward "readable from arm's length at a sim rig," not desktop-density
+text.
 
-**Illumination** is a three-stop control (Day / Dusk / Night, cycled via
-the ILLUM button or the rotary knob) that shifts the glow color and
-brightness of every readout — the rotary knob itself is decorative, styled
-into the image, with only the tap-to-cycle interaction it already had.
+**Physical controls** (left to right): **Illumination** cycles Day / Dusk
+/ Night, shifting the glow color and brightness of every readout. **Drive**
+and **Notes** switch the LCD's two screens — their small active-state
+indicator dots are the two genuinely transparent pill cutouts in the skin,
+not a redrawn UI. **Select** pages through the current screen's content
+when it's longer than the visible area, wrapping back to the top at the
+end — a physical-feeling alternative to a scrollbar. A small **Return**
+button integrated into the header takes you back to the main app.
 
 A couple of practical notes:
 
-- There's no web API for detecting "device unlocked" — browsers don't
-  expose lock-screen state to a page at all — so activation is based on
-  landscape orientation + a tablet-sized viewport (roughly iPad and up).
-  A manual "Drive Mode" button is always available too, for devices the
-  auto-detection doesn't fit, or for trying it on a laptop.
+- There's no web API for detecting "device unlocked," so auto-activation
+  is landscape orientation on a detected iPad. A manual "Drive Mode" button
+  is available on iPad in any orientation, with a hint to rotate if it's
+  not landscape yet.
 - Car selection happens on the normal Take Out page before entering Drive
-  Mode, not inside it — matching the described workflow (select car → enter
-  Drive Mode → drive → return → log a note) and keeping the unit itself
-  uncluttered.
-- Rotating back to portrait exits Drive Mode automatically. There's also a
-  small "Exit" control tucked in the top-right corner.
+  Console, not inside it — matching the workflow (select car → enter
+  console → drive → return → log a note) and keeping the unit uncluttered.
+- Rotating back to portrait exits Drive Console automatically.
 
 ## Adding to your iOS home screen
 
 The app is set up to install like a native app icon:
 
-1. Deploy it to Netlify (see below), then open the live site in **Safari** on
-   your iPhone — make sure you're on the Garage home page (`/`).
+1. Deploy it (see below), then open the live site in **Safari** on
+   your iPhone or iPad — make sure you're on the Garage home page.
 2. Tap the **Share** icon → **Add to Home Screen**.
 3. It'll use the one64garage icon and open full-screen with no Safari
    address bar when launched from the home screen.
