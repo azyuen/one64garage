@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { toText } from '../lib/format';
+import { toText, formatDuration } from '../lib/format';
 import driveModeSkin from '../assets/drive-mode-skin.webp';
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ const LAYOUT = {
 // fixed breakpoint — a long car name on a big iPad Pro gets more room (and
 // so stays larger) than the same name on a smaller iPad, and nothing ever
 // overflows the header cutout regardless of name length.
-function useFitText(text, maxPx, minPx = 12) {
+function useFitText(text, maxPx, minPx = 10) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -66,7 +66,7 @@ function useFitText(text, maxPx, minPx = 12) {
   return ref;
 }
 
-export default function DriveMode({ car, record, sessions, onExit, onLogSession }) {
+export default function DriveMode({ car, record, sessions, onExit, onLogSession, onUpdateRating }) {
   const [screen, setScreen] = useState('drive'); // 'drive' | 'notes'
   const [illum, setIllum] = useState('day');
   const [noteText, setNoteText] = useState('');
@@ -74,7 +74,9 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
   const [running, setRunning] = useState(false);
   const [startedAt, setStartedAt] = useState(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [clock, setClock] = useState(() => new Date());
   const scrollRef = useRef(null);
+  const stageRef = useRef(null);
 
   useEffect(() => {
     if (!running) return;
@@ -83,10 +85,33 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
   }, [running, startedAt]);
 
   useEffect(() => {
+    const t = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Best-effort true fullscreen (hides Safari's own chrome) where the
+  // Fullscreen API is available. iOS doesn't let any web content — PWA or
+  // not — hide the system status bar itself; that's an Apple platform
+  // restriction with no public workaround, not something fixable in code.
+  // "black-translucent" (set in index.html) plus this fixed, edge-to-edge
+  // overlay is the closest a web app can get.
+  useEffect(() => {
+    const el = stageRef.current?.parentElement;
+    if (el?.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+    return () => {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     };
   }, []);
 
@@ -135,17 +160,27 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
   }, [record]);
 
   const historicalNote = toText(car?.history?.whyItMatters);
+  const rating = record?.gt?.rating || 0;
 
   function submitNote() {
     if (!car || !noteText.trim()) return;
-    onLogSession(noteText.trim());
+    // The session duration comes along for the ride automatically — no
+    // extra step, it's just whatever the Drive Timer already reads.
+    onLogSession(noteText.trim(), elapsedSec > 0 ? elapsedSec : undefined);
     setNoteText('');
     setLogged(true);
+    resetTimer();
     setTimeout(() => setLogged(false), 2500);
   }
 
+  function rateCar(n) {
+    if (!onUpdateRating) return;
+    onUpdateRating(n === rating ? 0 : n);
+  }
+
   const titleText = car ? [toText(car.make), toText(car.model), toText(car.variant), toText(car.year)].filter(Boolean).join(' ') : '';
-  const titleRef = useFitText(titleText, 30, 13);
+  const titleRef = useFitText(titleText, 18, 10);
+  const clockText = clock.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="fixed inset-0 z-50 bg-console-screen flex items-center justify-center p-3">
@@ -153,6 +188,7 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
           never stretched or cropped); everything inside is positioned as a
           percentage of this box so it scales proportionally with it. */}
       <div
+        ref={stageRef}
         className="relative"
         style={{
           width: 'min(100%, calc((100vh - 1.5rem) * 1457 / 1079))',
@@ -165,11 +201,17 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
           </div>
         ) : (
           <>
-            {/* Vehicle info header — right-aligned, shrinks to fit */}
-            <div className="absolute flex items-center justify-end overflow-hidden px-[1.5%]" style={LAYOUT.header}>
+            {/* Header — clock left, vehicle name right, both shrink to fit */}
+            <div className="absolute flex items-center justify-between overflow-hidden px-[1.5%]" style={LAYOUT.header}>
+              <span
+                className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none flex-shrink-0`}
+                style={{ fontSize: 'clamp(11px, 1.6vw, 19px)' }}
+              >
+                {clockText}
+              </span>
               <p
                 ref={titleRef}
-                className={`font-mono ${theme.text} console-glow ${theme.dim} tracking-[0.08em] uppercase leading-none whitespace-nowrap text-right`}
+                className={`font-mono ${theme.text} console-glow ${theme.dim} tracking-[0.08em] uppercase leading-none whitespace-nowrap text-right ml-3 min-w-0`}
               >
                 {titleText}
               </p>
@@ -177,39 +219,49 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
 
             {/* Drive Timer — left gauge */}
             <div className="absolute flex flex-col items-center justify-center gap-0.5 px-1" style={LAYOUT.gaugeLeft}>
-              <span className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(10px, 1.7vw, 20px)' }}>
+              <span className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(13px, 2.3vw, 27px)' }}>
                 {formatElapsed(elapsedSec)}
               </span>
-              <span className={`font-mono ${theme.text} opacity-50 leading-none`} style={{ fontSize: 'clamp(5px, 0.55vw, 8px)' }}>
+              <span className={`font-mono ${theme.text} opacity-50 leading-none mt-0.5`} style={{ fontSize: 'clamp(6px, 0.6vw, 9px)' }}>
                 HRS MIN SEC
               </span>
               <button
                 onClick={toggleTimer}
                 onDoubleClick={resetTimer}
-                className={`mt-1 font-mono uppercase border ${theme.border} ${theme.text} rounded-full px-2 py-0.5`}
-                style={{ fontSize: 'clamp(6px, 0.7vw, 9px)' }}
+                className={`mt-1.5 font-mono uppercase border ${theme.border} ${theme.text} rounded-full px-2.5 py-1`}
+                style={{ fontSize: 'clamp(7px, 0.8vw, 10px)' }}
               >
                 {running ? 'Stop' : elapsedSec > 0 ? 'Resume' : 'Start'}
               </button>
             </div>
 
-            {/* Garage Rating — centre gauge */}
-            <div className="absolute flex flex-col items-center justify-center gap-0.5 px-1" style={LAYOUT.gaugeCenter}>
-              <span className={`${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(10px, 1.5vw, 17px)' }}>
-                {record?.gt?.rating > 0 ? '★'.repeat(record.gt.rating) + '☆'.repeat(5 - record.gt.rating) : '☆☆☆☆☆'}
-              </span>
-              <span className={`font-digital ${theme.text} opacity-70 leading-none`} style={{ fontSize: 'clamp(7px, 1vw, 12px)' }}>
-                {record?.gt?.rating > 0 ? `${record.gt.rating}.0 / 5` : '\u2014 / 5'}
+            {/* Garage Rating — centre gauge, tap a star to rate */}
+            <div className="absolute flex flex-col items-center justify-center gap-1 px-1" style={LAYOUT.gaugeCenter}>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => rateCar(n)}
+                    aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
+                    className={`${theme.text} leading-none ${n <= rating ? `console-glow ${theme.dim}` : 'opacity-30'}`}
+                    style={{ fontSize: 'clamp(13px, 2vw, 23px)' }}
+                  >
+                    {n <= rating ? '★' : '☆'}
+                  </button>
+                ))}
+              </div>
+              <span className={`font-digital ${theme.text} opacity-70 leading-none`} style={{ fontSize: 'clamp(8px, 1.05vw, 13px)' }}>
+                {rating > 0 ? `${rating}.0 / 5` : '\u2014 / 5'}
               </span>
             </div>
 
             {/* Vehicle Info — right gauge */}
             <div className="absolute flex flex-col items-center justify-center gap-0.5 px-1" style={LAYOUT.gaugeRight}>
-              <span className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(10px, 1.7vw, 20px)' }}>
+              <span className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(13px, 2.3vw, 27px)' }}>
                 {toText(car.tech?.horsepower) || '\u2014'}
               </span>
               <span className={`w-4 border-t ${theme.border} my-0.5`} />
-              <span className={`font-digital ${theme.text} opacity-80 leading-none`} style={{ fontSize: 'clamp(9px, 1.3vw, 15px)' }}>
+              <span className={`font-digital ${theme.text} opacity-80 leading-none`} style={{ fontSize: 'clamp(11px, 1.7vw, 20px)' }}>
                 {toText(car.tech?.drivetrain) || '\u2014'}
               </span>
             </div>
@@ -251,6 +303,7 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
                         {lastSession && (
                           <span className={`font-mono ${theme.text} opacity-45`} style={{ fontSize: 'clamp(8px, 0.85vw, 11px)' }}>
                             {new Date(lastSession.date).toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                            {lastSession.durationSec ? ` \u00b7 ${formatDuration(lastSession.durationSec)}` : ''}
                           </span>
                         )}
                       </div>
@@ -293,6 +346,11 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
                         >
                           Save Note
                         </button>
+                        {elapsedSec > 0 && (
+                          <span className={`font-mono ${theme.text} opacity-50`} style={{ fontSize: 'clamp(8px, 0.9vw, 11px)' }}>
+                            Session time: {formatDuration(elapsedSec)}
+                          </span>
+                        )}
                         {logged && (
                           <span className={`font-mono uppercase ${theme.text}`} style={{ fontSize: 'clamp(9px, 1vw, 12px)' }}>
                             Saved.
@@ -311,6 +369,7 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession 
                             <li key={s.id}>
                               <span className={`font-mono ${theme.text} opacity-45 block`} style={{ fontSize: 'clamp(8px, 0.85vw, 11px)' }}>
                                 {new Date(s.date).toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                                {s.durationSec ? ` \u00b7 ${formatDuration(s.durationSec)}` : ''}
                               </span>
                               <span className={`font-digital ${theme.text} ${theme.dim} leading-snug`} style={{ fontSize: 'clamp(12px, 1.5vw, 18px)' }}>
                                 {toText(s.focus)}

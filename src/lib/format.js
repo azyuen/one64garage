@@ -13,3 +13,13 @@ export function toText(v) {
   }
   return String(v);
 }
+
+// Compact session duration — "42m 18s" reads faster in a list than a
+// timestamp-style HH:MM:SS.
+export function formatDuration(sec) {
+  if (!sec) return '';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}

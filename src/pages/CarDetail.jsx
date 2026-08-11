@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useCars } from '../lib/useCars';
 import { getRecord, saveRecord, addDriverDevNote, deleteDriverDevNote, getSessions, isDrivenThisMonth } from '../lib/storage';
 import { collectFieldValues } from '../lib/suggestions';
-import { toText } from '../lib/format';
+import { toText, formatDuration } from '../lib/format';
 import PhotoUpload from '../components/PhotoUpload';
 import PhotoGallery from '../components/PhotoGallery';
 import CompletionRing from '../components/CompletionRing';
@@ -329,6 +329,7 @@ export default function CarDetail() {
                   <li key={s.id} className="text-sm">
                     <span className="font-mono text-[10px] text-ink-soft dark:text-paper-soft block mb-0.5">
                       {new Date(s.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      {s.durationSec ? ` · ${formatDuration(s.durationSec)}` : ''}
                     </span>
                     {toText(s.focus)}
                   </li>

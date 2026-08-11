@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCars } from '../lib/useCars';
-import { getRecord, logSession, getSessions } from '../lib/storage';
-import { toText } from '../lib/format';
+import { getRecord, saveRecord, logSession, getSessions } from '../lib/storage';
+import { toText, formatDuration } from '../lib/format';
 import { useDriveModeEligible } from '../lib/useDriveMode';
 import DriveMode from '../components/DriveMode';
 
@@ -103,9 +103,9 @@ export default function TakeOut() {
     setConfirmed(false);
   }
 
-  function recordSession(focusText) {
+  function recordSession(focusText, durationSec) {
     if (!car) return;
-    logSession({ carId: car.id, focus: focusText });
+    logSession({ carId: car.id, focus: focusText, ...(durationSec ? { durationSec } : {}) });
     refresh();
     setConfirmed(true);
   }
@@ -116,8 +116,24 @@ export default function TakeOut() {
     setReflection('');
   }
 
+  function updateRating(n) {
+    if (!car) return;
+    const current = getRecord(car.id);
+    saveRecord(car.id, { ...current, gt: { ...current.gt, rating: n } });
+    refresh();
+  }
+
   if (driveModeActive && car) {
-    return <DriveMode car={car} record={record} sessions={allSessions} onExit={exitDriveMode} onLogSession={recordSession} />;
+    return (
+      <DriveMode
+        car={car}
+        record={record}
+        sessions={allSessions}
+        onExit={exitDriveMode}
+        onLogSession={recordSession}
+        onUpdateRating={updateRating}
+      />
+    );
   }
 
   return (
@@ -281,6 +297,7 @@ export default function TakeOut() {
                   <li key={s.id} className="text-sm">
                     <span className="font-mono text-[10px] text-ink-soft dark:text-paper-soft block mb-0.5">
                       {new Date(s.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      {s.durationSec ? ` · ${formatDuration(s.durationSec)}` : ''}
                     </span>
                     {toText(s.focus)}
                   </li>
