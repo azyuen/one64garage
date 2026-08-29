@@ -155,6 +155,20 @@ export function logSession(session) {
   return entry;
 }
 
+export function updateSession(sessionId, patch) {
+  const sessions = getSessions();
+  const idx = sessions.findIndex((s) => s.id === sessionId);
+  if (idx === -1) return null;
+  sessions[idx] = { ...sessions[idx], ...patch };
+  write(KEYS.SESSIONS, sessions);
+  return sessions[idx];
+}
+
+export function deleteSession(sessionId) {
+  const sessions = getSessions().filter((s) => s.id !== sessionId);
+  write(KEYS.SESSIONS, sessions);
+}
+
 // A car counts as "driven this month" automatically once a session has been
 // logged for it in the last 30 days — this replaces the old manual status.
 export function isDrivenThisMonth(carId, sessions) {

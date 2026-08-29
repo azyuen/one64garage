@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useCars } from '../lib/useCars';
-import { getRecord, saveRecord, addDriverDevNote, deleteDriverDevNote, getSessions, isDrivenThisMonth } from '../lib/storage';
+import { getRecord, saveRecord, addDriverDevNote, deleteDriverDevNote, getSessions, updateSession, deleteSession, isDrivenThisMonth } from '../lib/storage';
 import { collectFieldValues } from '../lib/suggestions';
 import { toText, formatDuration } from '../lib/format';
 import PhotoUpload from '../components/PhotoUpload';
@@ -33,6 +33,9 @@ export default function CarDetail() {
   const [record, setRecord] = useState(() => getRecord(id));
   const [devNote, setDevNote] = useState('');
   const [showAllSessions, setShowAllSessions] = useState(false);
+  const [sessionsVersion, setSessionsVersion] = useState(0);
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editSessionText, setEditSessionText] = useState('');
 
   useEffect(() => {
     setRecord(getRecord(id));
@@ -46,7 +49,7 @@ export default function CarDetail() {
       getSessions()
         .filter((s) => s.carId === id)
         .sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [id, record]
+    [id, record, sessionsVersion]
   );
 
   if (!car) {
@@ -91,6 +94,30 @@ export default function CarDetail() {
     const updated = deleteDriverDevNote(id, entryId);
     setRecord(updated);
     refresh();
+  }
+
+  function startEditSession(session) {
+    setEditingSessionId(session.id);
+    setEditSessionText(toText(session.focus));
+  }
+
+  function cancelEditSession() {
+    setEditingSessionId(null);
+    setEditSessionText('');
+  }
+
+  function saveEditSession(sessionId) {
+    if (!editSessionText.trim()) return;
+    updateSession(sessionId, { focus: editSessionText.trim() });
+    setEditingSessionId(null);
+    setEditSessionText('');
+    setSessionsVersion((v) => v + 1);
+  }
+
+  function removeSession(sessionId) {
+    if (!confirm('Remove this session log entry? This cannot be undone.')) return;
+    deleteSession(sessionId);
+    setSessionsVersion((v) => v + 1);
   }
 
   function handleDelete() {
@@ -324,14 +351,57 @@ export default function CarDetail() {
           {carSessions.length > 0 && (
             <div className="card-surface p-5">
               <p className="plate-label mb-3">Session History</p>
-              <ul className="space-y-2.5">
+              <ul className="space-y-3">
                 {(showAllSessions ? carSessions : carSessions.slice(0, 3)).map((s) => (
                   <li key={s.id} className="text-sm">
-                    <span className="font-mono text-[10px] text-ink-soft dark:text-paper-soft block mb-0.5">
-                      {new Date(s.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                      {s.durationSec ? ` · ${formatDuration(s.durationSec)}` : ''}
-                    </span>
-                    {toText(s.focus)}
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-mono text-[10px] text-ink-soft dark:text-paper-soft block mb-0.5">
+                        {new Date(s.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        {s.durationSec ? ` · ${formatDuration(s.durationSec)}` : ''}
+                      </span>
+                      {editingSessionId !== s.id && (
+                        <span className="flex items-center gap-2.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startEditSession(s)}
+                            className="font-mono text-[10px] tracking-plate uppercase text-ink-soft dark:text-paper-soft hover:text-vermilion"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSession(s.id)}
+                            className="font-mono text-[10px] tracking-plate uppercase text-ink-soft dark:text-paper-soft hover:text-vermilion"
+                          >
+                            Delete
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                    {editingSessionId === s.id ? (
+                      <div className="mt-1.5 space-y-2">
+                        <textarea
+                          className="field-textarea"
+                          value={editSessionText}
+                          onChange={(e) => setEditSessionText(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="flex items-center gap-3">
+                          <button type="button" onClick={() => saveEditSession(s.id)} className="btn-primary text-xs px-3 py-1.5">
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditSession}
+                            className="font-mono text-[10px] tracking-plate uppercase text-ink-soft dark:text-paper-soft hover:text-vermilion"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      toText(s.focus)
+                    )}
                   </li>
                 ))}
               </ul>

@@ -21,11 +21,46 @@ function themeFor(illum) {
   };
 }
 
-function formatElapsed(sec) {
+// HH:MM only — seconds are shown separately as the ring of segments.
+function formatElapsedShort(sec) {
   const h = String(Math.floor(sec / 3600)).padStart(2, '0');
   const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
-  const s = String(sec % 60).padStart(2, '0');
-  return `${h}:${m}:${s}`;
+  return `${h}:${m}`;
+}
+
+// A ring of 60 small segments around the inside edge of the Drive Timer
+// gauge — lights up clockwise as the seconds tick over, Casio-stopwatch
+// style. Positioned with trigonometry rather than a fixed-radius CSS
+// transform so it scales proportionally with the gauge at any stage size,
+// same as everything else in Drive Console.
+function SecondsRing({ seconds, litColor }) {
+  const radius = 43; // percent from center, kept inside the transparent circle
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {Array.from({ length: 60 }).map((_, i) => {
+        const lit = i < seconds;
+        const angleDeg = i * 6; // 360 / 60
+        const rad = (angleDeg * Math.PI) / 180;
+        const x = 50 + radius * Math.sin(rad);
+        const y = 50 - radius * Math.cos(rad);
+        return (
+          <span
+            key={i}
+            className="absolute rounded-full"
+            style={{
+              width: '2.6%',
+              height: '6.5%',
+              left: `${x}%`,
+              top: `${y}%`,
+              transform: `translate(-50%, -50%) rotate(${angleDeg}deg)`,
+              background: lit ? litColor : 'rgba(255,255,255,0.09)',
+              transition: 'background 0.2s',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 // Coordinates measured directly from the dashboard skin's actual transparent
@@ -219,11 +254,12 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession,
 
             {/* Drive Timer — left gauge */}
             <div className="absolute flex flex-col items-center justify-center gap-0.5 px-1" style={LAYOUT.gaugeLeft}>
-              <span className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(13px, 2.3vw, 27px)' }}>
-                {formatElapsed(elapsedSec)}
+              <SecondsRing seconds={elapsedSec % 60} litColor="#DE5B42" />
+              <span className={`font-digital ${theme.text} console-glow ${theme.dim} leading-none`} style={{ fontSize: 'clamp(15px, 2.6vw, 30px)' }}>
+                {formatElapsedShort(elapsedSec)}
               </span>
               <span className={`font-mono ${theme.text} opacity-50 leading-none mt-0.5`} style={{ fontSize: 'clamp(6px, 0.6vw, 9px)' }}>
-                HRS MIN SEC
+                HRS MIN
               </span>
               <button
                 onClick={toggleTimer}
@@ -236,9 +272,9 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession,
             </div>
 
             {/* Garage Rating — centre gauge, tap a star to rate */}
-            <div className="absolute flex flex-col items-center justify-center gap-1 px-1" style={LAYOUT.gaugeCenter}>
+            <div className="absolute flex flex-col items-center justify-center gap-0.5 px-1" style={LAYOUT.gaugeCenter}>
               <div className="flex items-center gap-0.5">
-                {[1, 2, 3, 4, 5].map((n) => (
+                {[4, 5].map((n) => (
                   <button
                     key={n}
                     onClick={() => rateCar(n)}
@@ -250,7 +286,20 @@ export default function DriveMode({ car, record, sessions, onExit, onLogSession,
                   </button>
                 ))}
               </div>
-              <span className={`font-digital ${theme.text} opacity-70 leading-none`} style={{ fontSize: 'clamp(8px, 1.05vw, 13px)' }}>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => rateCar(n)}
+                    aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
+                    className={`${theme.text} leading-none ${n <= rating ? `console-glow ${theme.dim}` : 'opacity-30'}`}
+                    style={{ fontSize: 'clamp(13px, 2vw, 23px)' }}
+                  >
+                    {n <= rating ? '★' : '☆'}
+                  </button>
+                ))}
+              </div>
+              <span className={`font-digital ${theme.text} opacity-70 leading-none mt-0.5`} style={{ fontSize: 'clamp(8px, 1.05vw, 13px)' }}>
                 {rating > 0 ? `${rating}.0 / 5` : '\u2014 / 5'}
               </span>
             </div>
