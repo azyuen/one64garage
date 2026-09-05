@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import StoredImage from './StoredImage';
 
 export default function PhotoGallery({ photos }) {
   const list = photos.filter((p) => p.src);
@@ -23,7 +24,7 @@ export default function PhotoGallery({ photos }) {
   if (list.length === 1) {
     return (
       <div className="aspect-[16/9] bg-canvas dark:bg-garage overflow-hidden">
-        <img src={list[0].src} alt={list[0].label} className="w-full h-full object-cover" />
+        <StoredImage photoRef={list[0].src} fallback={list[0].fallback} alt={list[0].label} className="w-full h-full object-cover" />
       </div>
     );
   }
@@ -37,7 +38,7 @@ export default function PhotoGallery({ photos }) {
       >
         {list.map((p) => (
           <div key={p.label} className="w-full h-full flex-shrink-0 snap-center">
-            <img src={p.src} alt={p.label} className="w-full h-full object-cover" />
+            <StoredImage photoRef={p.src} fallback={p.fallback} alt={p.label} className="w-full h-full object-cover" />
           </div>
         ))}
       </div>

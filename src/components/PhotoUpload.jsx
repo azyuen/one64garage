@@ -1,43 +1,37 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import StoredImage from './StoredImage';
 
-// Downscales the image before storing, since localStorage has a small quota
-// and this app has no backend to upload full-resolution photos to.
-function downscale(file, maxDim = 900, quality = 0.82) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      img.onerror = reject;
-      img.onload = () => {
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// variant="tile" (default) shows a square preview thumbnail alongside the buttons.
-// variant="button" is just the buttons — used where a photo preview already
-// exists elsewhere on the page (e.g. the car's main hero image).
+// onChange receives the original File for uploads, or null when removing.
+// The caller persists the File in IndexedDB and stores only its small reference
+// in the car record. No resizing/recompression occurs here.
 export default function PhotoUpload({ value, onChange, label = 'Photo', variant = 'tile', buttonLabel }) {
   const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
 
   async function handleFile(e) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     try {
-      const dataUrl = await downscale(file);
-      onChange(dataUrl);
-    } catch {
-      alert('Could not read that image. Try a different file.');
+      setBusy(true);
+      await onChange(file);
+    } catch (err) {
+      console.error('one64garage: photo upload failed', err);
+      alert('Could not save that photo. Your existing photo has been left unchanged.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    try {
+      setBusy(true);
+      await onChange(null);
+    } catch (err) {
+      console.error('one64garage: photo removal failed', err);
+      alert('Could not remove that photo.');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -46,15 +40,11 @@ export default function PhotoUpload({ value, onChange, label = 'Photo', variant 
   if (variant === 'button') {
     return (
       <div className="flex items-center gap-3">
-        <button type="button" className="btn-ghost text-xs px-3 py-1.5" onClick={() => inputRef.current?.click()}>
-          {buttonLabel || (value ? `Replace ${label}` : `Upload ${label}`)}
+        <button type="button" disabled={busy} className="btn-ghost text-xs px-3 py-1.5 disabled:opacity-50" onClick={() => inputRef.current?.click()}>
+          {busy ? 'Saving…' : buttonLabel || (value ? `Replace ${label}` : `Upload ${label}`)}
         </button>
         {value && (
-          <button
-            type="button"
-            className="text-xs text-ink-soft dark:text-paper-soft hover:text-vermilion underline"
-            onClick={() => onChange('')}
-          >
+          <button type="button" disabled={busy} className="text-xs text-ink-soft dark:text-paper-soft hover:text-vermilion underline disabled:opacity-50" onClick={remove}>
             Remove
           </button>
         )}
@@ -67,30 +57,19 @@ export default function PhotoUpload({ value, onChange, label = 'Photo', variant 
     <div>
       <span className="field-label">{label}</span>
       <div className="flex items-start gap-3">
-        <div
-          className="w-24 h-24 card-surface flex items-center justify-center overflow-hidden cursor-pointer"
-          onClick={() => inputRef.current?.click()}
-        >
+        <div className="w-24 h-24 card-surface flex items-center justify-center overflow-hidden cursor-pointer" onClick={() => !busy && inputRef.current?.click()}>
           {value ? (
-            <img src={value} alt="" className="w-full h-full object-cover" />
+            <StoredImage photoRef={value} alt="" className="w-full h-full object-cover" />
           ) : (
-            <span className="font-mono text-[10px] text-ink-soft dark:text-paper-soft text-center px-1">
-              ADD PHOTO
-            </span>
+            <span className="font-mono text-[10px] text-ink-soft dark:text-paper-soft text-center px-1">ADD PHOTO</span>
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <button type="button" className="btn-ghost text-xs px-3 py-1.5" onClick={() => inputRef.current?.click()}>
-            {value ? 'Replace' : 'Upload'}
+          <button type="button" disabled={busy} className="btn-ghost text-xs px-3 py-1.5 disabled:opacity-50" onClick={() => inputRef.current?.click()}>
+            {busy ? 'Saving…' : value ? 'Replace' : 'Upload'}
           </button>
           {value && (
-            <button
-              type="button"
-              className="text-xs text-ink-soft dark:text-paper-soft hover:text-vermilion underline"
-              onClick={() => onChange('')}
-            >
-              Remove
-            </button>
+            <button type="button" disabled={busy} className="text-xs text-ink-soft dark:text-paper-soft hover:text-vermilion underline disabled:opacity-50" onClick={remove}>Remove</button>
           )}
         </div>
         {input}

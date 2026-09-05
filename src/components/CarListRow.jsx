@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import CompletionRing from './CompletionRing';
 import { toText } from '../lib/format';
+import StoredImage from './StoredImage';
 
 export default function CarListRow({ car, record, index, drivenThisMonth = false }) {
   const photo = record?.diecast?.photo || car.heroImage;
@@ -15,7 +16,7 @@ export default function CarListRow({ car, record, index, drivenThisMonth = false
       </span>
       <div className="w-11 h-11 flex-shrink-0 bg-canvas dark:bg-garage border border-canvas-line dark:border-garage-line overflow-hidden flex items-center justify-center">
         {photo ? (
-          <img src={photo} alt="" className="w-full h-full object-cover" />
+          <StoredImage photoRef={record?.diecast?.photo} fallback={car.heroImage} alt="" className="w-full h-full object-cover" />
         ) : (
           <span className="font-mono text-[7px] text-ink-soft dark:text-paper-soft">N/A</span>
         )}

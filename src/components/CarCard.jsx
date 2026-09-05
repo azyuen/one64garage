@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import CompletionRing from './CompletionRing';
 import { toText } from '../lib/format';
+import StoredImage from './StoredImage';
 
 const STATUS_LABEL = {
   studying: 'Studying',
@@ -16,8 +17,9 @@ export default function CarCard({ car, record, index, compact = false, drivenThi
     >
       <div className="aspect-[4/3] bg-canvas dark:bg-garage overflow-hidden relative border-b border-canvas-line dark:border-garage-line">
         {photo ? (
-          <img
-            src={photo}
+          <StoredImage
+            photoRef={record?.diecast?.photo}
+            fallback={car.heroImage}
             alt={`${car.make} ${car.model}`}
             className="w-full h-full object-cover grayscale-[15%] group-hover:grayscale-0 transition-all duration-300"
           />
