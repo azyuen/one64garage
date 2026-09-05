@@ -5,6 +5,8 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './index.css'
 import { getTheme } from './lib/storage'
+import { migrateLegacyPhotosOnce } from './lib/photoMigration'
+import { requestPersistentStorage } from './lib/photoStore'
 
 // Last-resort safety net: shows a readable error instead of a blank screen
 // for anything React's own error boundary can't catch (errors thrown in
@@ -63,14 +65,23 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-try {
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-      <HashRouter>
-        <App />
-      </HashRouter>
-    </React.StrictMode>
-  )
-} catch (err) {
-  showFatalError(err?.stack || err?.message || String(err));
+async function startApp() {
+  try {
+    // Move any older Base64 photos out of localStorage before React reads the
+    // records. New photos are stored at original resolution in IndexedDB.
+    await migrateLegacyPhotosOnce();
+    requestPersistentStorage();
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </React.StrictMode>
+    );
+  } catch (err) {
+    showFatalError(err?.stack || err?.message || String(err));
+  }
 }
+
+startApp();
