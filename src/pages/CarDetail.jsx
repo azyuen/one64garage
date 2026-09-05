@@ -4,6 +4,7 @@ import { useCars } from '../lib/useCars';
 import { getRecord, saveRecord, addDriverDevNote, deleteDriverDevNote, getSessions, updateSession, deleteSession, isDrivenThisMonth } from '../lib/storage';
 import { collectFieldValues } from '../lib/suggestions';
 import { toText, formatDuration } from '../lib/format';
+import { savePhotoBlob, deletePhoto, isIndexedPhotoRef } from '../lib/photoStore';
 import PhotoUpload from '../components/PhotoUpload';
 import PhotoGallery from '../components/PhotoGallery';
 import CompletionRing from '../components/CompletionRing';
@@ -64,9 +65,14 @@ export default function CarDetail() {
   }
 
   function persist(next) {
-    setRecord(next);
-    saveRecord(id, next);
+    const saved = saveRecord(id, next);
+    if (!saved) {
+      alert('This change could not be saved in this browser. Your existing data is safe.');
+      return false;
+    }
+    setRecord(saved);
     refresh();
+    return true;
   }
 
   function updateDiecast(patch) {
@@ -77,6 +83,31 @@ export default function CarDetail() {
     persist({ ...record, gt: { ...record.gt, ...patch } });
   }
 
+  async function updatePhoto(slot, file) {
+    const oldRef = record?.[slot]?.photo || '';
+
+    // Removal first updates the record, then deletes the now-unreferenced blob.
+    if (!file) {
+      const next = { ...record, [slot]: { ...record[slot], photo: '' } };
+      if (persist(next) && isIndexedPhotoRef(oldRef)) {
+        await deletePhoto(oldRef).catch((err) => console.warn('one64garage: could not delete old photo blob', err));
+      }
+      return;
+    }
+
+    // Write the original image bytes to IndexedDB before changing metadata. If
+    // the tiny localStorage reference cannot be saved, roll the new blob back.
+    const newRef = await savePhotoBlob(file, { carId: id, slot, name: file.name, type: file.type });
+    const next = { ...record, [slot]: { ...record[slot], photo: newRef } };
+    if (!persist(next)) {
+      await deletePhoto(newRef).catch(() => {});
+      throw new Error('Could not save the photo reference.');
+    }
+    if (isIndexedPhotoRef(oldRef)) {
+      await deletePhoto(oldRef).catch((err) => console.warn('one64garage: could not delete replaced photo blob', err));
+    }
+  }
+
   function toggleStudying() {
     persist({ ...record, status: record.status === 'studying' ? null : 'studying' });
   }
@@ -85,6 +116,10 @@ export default function CarDetail() {
     e.preventDefault();
     if (!devNote.trim()) return;
     const updated = addDriverDevNote(id, devNote.trim());
+    if (!updated) {
+      alert('This note could not be saved because this browser is out of local storage space.');
+      return;
+    }
     setRecord(updated);
     setDevNote('');
     refresh();
@@ -92,6 +127,10 @@ export default function CarDetail() {
 
   function removeDevNote(entryId) {
     const updated = deleteDriverDevNote(id, entryId);
+    if (!updated) {
+      alert('This change could not be saved because this browser is out of local storage space.');
+      return;
+    }
     setRecord(updated);
     refresh();
   }
@@ -243,7 +282,7 @@ export default function CarDetail() {
       {tab === 'Diecast' && (
         <div className="card-surface p-5 space-y-5">
           <p className="plate-label">Physical Model</p>
-          <PhotoUpload variant="button" value={record.diecast.photo} onChange={(v) => updateDiecast({ photo: v })} label="Diecast Photo" />
+          <PhotoUpload variant="button" value={record.diecast.photo} onChange={(file) => updatePhoto('diecast', file)} label="Diecast Photo" />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <span className="field-label">Brand</span>
@@ -330,7 +369,7 @@ export default function CarDetail() {
               <PhotoUpload
                 variant="button"
                 value={record.gt.photo}
-                onChange={(v) => updateGt({ photo: v })}
+                onChange={(file) => updatePhoto('gt', file)}
                 label="GT Photo"
                 buttonLabel={record.gt.photo ? 'Replace GT Photo' : 'Upload GT Photo'}
               />

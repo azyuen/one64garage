@@ -57,8 +57,8 @@ export default function Journal() {
     getStorageEstimate().then(setStorageEstimate);
   }, []);
 
-  function handleExport() {
-    const data = exportAllData();
+  async function handleExport() {
+    const data = await exportAllData();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -76,7 +76,7 @@ export default function Journal() {
     e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const data = JSON.parse(reader.result);
         if (!data.customCars && !data.records && !data.sessions) {
@@ -87,11 +87,12 @@ export default function Journal() {
           'Restoring will completely replace everything currently in the app — all cars, diecast records, journal entries, and sessions — with the contents of this backup. This can\u2019t be undone. Continue?'
         );
         if (!confirmed) return;
-        importAllData(data);
+        await importAllData(data);
         setRestoreMsg('Backup restored — reloading\u2026');
         setTimeout(() => window.location.reload(), 600);
-      } catch {
-        setRestoreMsg('That file is not valid JSON.');
+      } catch (err) {
+        console.error('one64garage: restore failed', err);
+        setRestoreMsg('Restore failed. The backup may be invalid or this browser may not have enough storage for its photos.');
       }
     };
     reader.readAsText(file);

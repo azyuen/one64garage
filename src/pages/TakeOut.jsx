@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCars } from '../lib/useCars';
 import { getRecord, saveRecord, logSession, getSessions } from '../lib/storage';
+import StoredImage from '../components/StoredImage';
 import { toText, formatDuration } from '../lib/format';
 import { useDriveModeEligible } from '../lib/useDriveMode';
 import DriveMode from '../components/DriveMode';
@@ -179,8 +180,9 @@ export default function TakeOut() {
         >
           <div className="w-14 h-14 flex-shrink-0 bg-canvas dark:bg-garage border border-canvas-line dark:border-garage-line overflow-hidden flex items-center justify-center">
             {getRecord(suggestion.id)?.diecast?.photo || suggestion.heroImage ? (
-              <img
-                src={getRecord(suggestion.id)?.diecast?.photo || suggestion.heroImage}
+              <StoredImage
+                photoRef={getRecord(suggestion.id)?.diecast?.photo}
+                fallback={suggestion.heroImage}
                 alt=""
                 className="w-full h-full object-cover"
               />
@@ -215,7 +217,7 @@ export default function TakeOut() {
           <div className="card-surface overflow-hidden">
             <div className="aspect-[16/9] bg-canvas dark:bg-garage border-b border-canvas-line dark:border-garage-line flex items-center justify-center overflow-hidden">
               {record.diecast.photo || car.heroImage ? (
-                <img src={record.diecast.photo || car.heroImage} alt="" className="w-full h-full object-cover" />
+                <StoredImage photoRef={record.diecast.photo} fallback={car.heroImage} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span className="font-mono text-xs tracking-plate text-ink-soft dark:text-paper-soft">NO PHOTO YET</span>
               )}
