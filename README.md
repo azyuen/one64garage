@@ -21,13 +21,15 @@ There are two layers, on purpose:
    history). This is meant to be edited by hand, like a spreadsheet, and
    committed to your repo. Copy the shape of an existing entry to add a new
    car, or use the in-app "Add Car" screen, which writes to layer 2 instead.
-2. **Browser `localStorage`** — everything personal: your diecast records,
-   GT journal entries, driver development notes, "Take this car out"
-   sessions, your theme preference, and any cars added through the UI. This
-   never leaves your device and isn't sent anywhere.
+2. **Browser `localStorage`** — lightweight personal data: diecast fields,
+   GT journal entries, driver development notes, "Take this car out" sessions,
+   theme/display preferences, and cars added through the UI.
+3. **Browser IndexedDB** — original-resolution diecast and GT photos, stored as
+   image Blobs. Car records keep only a tiny IndexedDB reference in localStorage.
 
-Because personal data lives in `localStorage`, it's tied to one browser on
-one device. If you want a backup, open the browser console and run:
+Personal data is still tied to one browser on one device and is not uploaded
+to a server. The Journal screen's Export backup includes both the structured
+data and the IndexedDB photos. For a console export you can run:
 
 ```js
 copy(JSON.stringify(await import('./src/lib/storage.js').then(m => m.exportAllData())))
@@ -259,8 +261,19 @@ src/
 
 ## Notes on photos
 
-Diecast photos are downscaled client-side and stored as data URLs in
-`localStorage`, since there's no backend to upload to. `localStorage` has a
-small quota (typically 5–10MB per origin), which is enough for dozens of
-compressed photos but not hundreds. If you outgrow it, the natural next step
-is swapping the photo field for a hosted-image URL instead of a data URL.
+Diecast and GT photos are stored at their uploaded resolution as Blobs in
+IndexedDB. They are not downscaled or recompressed by one64garage. This removes
+the small localStorage ceiling that previously caused some uploads to appear
+to save and then disappear after reload.
+
+On first launch after upgrading, legacy Base64 photos are migrated out of
+`dg.records` into IndexedDB and replaced with small `idb-photo:` references.
+The exact image bytes already stored are preserved during that migration. New
+uploads preserve the original File bytes supplied by the browser.
+
+IndexedDB capacity is browser-managed and is normally far larger than
+localStorage, so the practical photo limit is available site/device storage
+rather than a fixed number of compressed thumbnails. The Journal storage line
+uses `navigator.storage.estimate()` when available to show current usage and
+quota. Exported JSON backups include the photo data so they can be restored on
+another device.
