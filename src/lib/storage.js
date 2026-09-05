@@ -1,6 +1,6 @@
 // one64garage — local persistence layer.
-// Everything lives in localStorage. No backend, no accounts.
-// Keys are namespaced so this app can safely share a browser with other localStorage users.
+// Structured app data lives in localStorage; high-resolution photos live in IndexedDB.
+// No backend or account is required. Keys are namespaced for this app.
 
 const KEYS = {
   CUSTOM_CARS: 'dg.customCars',      // cars added through the UI (not in the seed JSON)
@@ -90,7 +90,7 @@ const emptyRecord = () => ({
     scale: '1:64',
     colour: '',
     releaseType: '',
-    photo: '', // data URL
+    photo: '', // IndexedDB photo reference (legacy builds may still contain a data URL during migration)
     notes: '',
   },
   gt: {
@@ -98,7 +98,7 @@ const emptyRecord = () => ({
     inGameModel: '',
     drivingTips: '',
     rating: 0, // 0-5 star driving enjoyment rating
-    photo: '', // data URL — GT screenshot, shown alongside the diecast photo
+    photo: '', // IndexedDB photo reference — GT screenshot, shown alongside the diecast photo
   },
   driverDev: [], // [{ id, date, note }] — the notes timeline, now part of the GT Journal tab
   status: null, // null | 'studying'  ("driven this month" is computed from sessions, not stored)
@@ -107,6 +107,11 @@ const emptyRecord = () => ({
 
 export function getAllRecords() {
   return read(KEYS.RECORDS, {});
+}
+
+// Used by one-time storage maintenance/migrations.
+export function replaceAllRecords(records) {
+  return write(KEYS.RECORDS, records);
 }
 
 export function getRecord(carId) {
@@ -124,7 +129,7 @@ export function getRecord(carId) {
 export function saveRecord(carId, record) {
   const all = getAllRecords();
   all[carId] = { ...record, updatedAt: new Date().toISOString() };
-  write(KEYS.RECORDS, all);
+  if (!write(KEYS.RECORDS, all)) return null;
   return all[carId];
 }
 
@@ -251,27 +256,53 @@ export async function getStorageEstimate() {
 
 // ---------- Export / import (simple backup, since there is no backend) ----------
 
-export function exportAllData() {
+export async function exportAllData() {
+  const { exportPhotosForBackup } = await import('./photoStore');
   return {
-    version: 1,
+    version: 2,
     customCars: getCustomCars(),
     hiddenSeedCars: getHiddenSeedCars(),
     records: getAllRecords(),
     sessions: getSessions(),
     displayPrefs: getDisplayPrefs(),
     theme: getTheme(),
+    photos: await exportPhotosForBackup(),
     exportedAt: new Date().toISOString(),
   };
 }
 
 // A true restore: the app's data ends up exactly matching the backup, not
-// merged with whatever was already there. Anything the backup doesn't
-// specify resets to empty/default rather than silently keeping stale data.
-export function importAllData(data) {
+// merged with whatever was already there. Version 2 backups include the
+// IndexedDB photo blobs; older backups remain compatible and their embedded
+// data-URL photos are migrated on the next app startup.
+export async function importAllData(data) {
   write(KEYS.CUSTOM_CARS, Array.isArray(data.customCars) ? data.customCars : []);
   write(KEYS.HIDDEN_SEED_CARS, Array.isArray(data.hiddenSeedCars) ? data.hiddenSeedCars : []);
   write(KEYS.RECORDS, data.records && typeof data.records === 'object' ? data.records : {});
   write(KEYS.SESSIONS, Array.isArray(data.sessions) ? data.sessions : []);
   write(KEYS.DISPLAY_PREFS, data.displayPrefs && typeof data.displayPrefs === 'object' ? data.displayPrefs : defaultDisplayPrefs());
   write(KEYS.THEME, 'theme' in data ? data.theme : null);
+
+  const { importPhotosFromBackup, clearAllPhotos, dataUrlToBlob, savePhotoBlob } = await import('./photoStore');
+  if (Array.isArray(data.photos)) {
+    await importPhotosFromBackup(data.photos);
+  } else {
+    // Version 1 backups stored photos directly in records as data URLs. Clear
+    // current IndexedDB photos, then migrate those legacy images immediately
+    // so restoring an old backup is still a true replacement.
+    await clearAllPhotos();
+    const records = getAllRecords();
+    let changed = false;
+    for (const [carId, record] of Object.entries(records)) {
+      for (const slot of ['diecast', 'gt']) {
+        const value = record?.[slot]?.photo;
+        if (!value || !String(value).startsWith('data:image/')) continue;
+        const blob = dataUrlToBlob(value);
+        const ref = await savePhotoBlob(blob, { carId, slot, type: blob.type });
+        record[slot] = { ...record[slot], photo: ref };
+        changed = true;
+      }
+    }
+    if (changed) write(KEYS.RECORDS, records);
+  }
 }
